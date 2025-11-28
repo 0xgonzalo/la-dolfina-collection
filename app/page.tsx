@@ -1,11 +1,11 @@
 import Hero from './components/Hero';
-import Collection from './components/Collection';
+import ManifoldCollection from './components/ManifoldCollection';
 
 /**
  * Home page component
  * Features:
  * - Hero section with image gallery
- * - Collection grid
+ * - Collection grid with Manifold auction tokens
  * - Responsive design for all screen sizes
  */
 export default function Home() {
@@ -14,7 +14,7 @@ export default function Home() {
       <div id="home">
         <Hero />
       </div>
-      <Collection />
+      <ManifoldCollection />
     </main>
   );
 }
