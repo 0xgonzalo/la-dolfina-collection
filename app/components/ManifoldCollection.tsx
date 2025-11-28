@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createPublicClient, http, parseAbi } from 'viem';
 import { sepolia } from 'viem/chains';
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface TokenMetadata {
   tokenId: string;
@@ -26,7 +27,87 @@ export default function ManifoldCollection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchMetadataFromURI = useCallback(async (uri: string): Promise<{
+    name?: string;
+    description?: string;
+    image?: string;
+    attributes?: Array<{ trait_type: string; value: string | number }>;
+  } | null> => {
+    try {
+      // Handle IPFS URLs
+      const url = resolveIPFSUrl(uri);
+
+      // Handle data URIs
+      if (uri.startsWith('data:application/json;base64,')) {
+        const base64Data = uri.replace('data:application/json;base64,', '');
+        const jsonString = atob(base64Data);
+        return JSON.parse(jsonString);
+      }
+
+      // Fetch from HTTP/HTTPS
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metadata: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (err) {
+      console.error('Error fetching metadata:', err);
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
+    async function fetchTokenMetadata(
+      publicClient: ReturnType<typeof createPublicClient>,
+      tokenId: string
+    ): Promise<TokenMetadata | null> {
+      try {
+        // First check if token exists by trying to get owner
+        try {
+          await publicClient.readContract({
+            address: CONTRACT_ADDRESS,
+            abi: ERC721_ABI,
+            functionName: 'ownerOf',
+            args: [BigInt(tokenId)],
+          });
+        } catch {
+          // Token doesn't exist
+          return null;
+        }
+
+        // Get token URI
+        const tokenURI = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: ERC721_ABI,
+          functionName: 'tokenURI',
+          args: [BigInt(tokenId)],
+        }) as string;
+
+        // Fetch metadata from token URI
+        const metadata = await fetchMetadataFromURI(tokenURI);
+
+        if (metadata) {
+          return {
+            tokenId,
+            name: metadata.name || `La Dolfina #${tokenId}`,
+            description: metadata.description || 'Limited Edition',
+            image: resolveIPFSUrl(metadata.image || '') || `/img/${tokenId.padStart(2, '0')}.jpg`,
+          };
+        }
+
+        // Fallback to local images if metadata fetch fails
+        return {
+          tokenId,
+          name: `La Dolfina #${tokenId}`,
+          description: 'Limited Edition',
+          image: `/img/${tokenId.padStart(2, '0')}.jpg`,
+        };
+      } catch (err) {
+        console.error(`Error fetching token ${tokenId}:`, err);
+        return null;
+      }
+    }
+
     async function fetchTokens() {
       try {
         setLoading(true);
@@ -47,7 +128,7 @@ export default function ManifoldCollection() {
             functionName: 'totalSupply',
           });
           maxTokens = Number(totalSupply);
-        } catch (err) {
+        } catch {
           console.log('totalSupply not available, trying token range...');
         }
 
@@ -73,82 +154,7 @@ export default function ManifoldCollection() {
     }
 
     fetchTokens();
-  }, []);
-
-  async function fetchTokenMetadata(
-    publicClient: any,
-    tokenId: string
-  ): Promise<TokenMetadata | null> {
-    try {
-      // First check if token exists by trying to get owner
-      try {
-        await publicClient.readContract({
-          address: CONTRACT_ADDRESS,
-          abi: ERC721_ABI,
-          functionName: 'ownerOf',
-          args: [BigInt(tokenId)],
-        });
-      } catch (err) {
-        // Token doesn't exist
-        return null;
-      }
-
-      // Get token URI
-      const tokenURI = await publicClient.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: ERC721_ABI,
-        functionName: 'tokenURI',
-        args: [BigInt(tokenId)],
-      }) as string;
-
-      // Fetch metadata from token URI
-      const metadata = await fetchMetadataFromURI(tokenURI);
-
-      if (metadata) {
-        return {
-          tokenId,
-          name: metadata.name || `La Dolfina #${tokenId}`,
-          description: metadata.description || 'Limited Edition',
-          image: resolveIPFSUrl(metadata.image) || `/img/${tokenId.padStart(2, '0')}.jpg`,
-        };
-      }
-
-      // Fallback to local images if metadata fetch fails
-      return {
-        tokenId,
-        name: `La Dolfina #${tokenId}`,
-        description: 'Limited Edition',
-        image: `/img/${tokenId.padStart(2, '0')}.jpg`,
-      };
-    } catch (err) {
-      console.error(`Error fetching token ${tokenId}:`, err);
-      return null;
-    }
-  }
-
-  async function fetchMetadataFromURI(uri: string): Promise<any | null> {
-    try {
-      // Handle IPFS URLs
-      const url = resolveIPFSUrl(uri);
-
-      // Handle data URIs
-      if (uri.startsWith('data:application/json;base64,')) {
-        const base64Data = uri.replace('data:application/json;base64,', '');
-        const jsonString = atob(base64Data);
-        return JSON.parse(jsonString);
-      }
-
-      // Fetch from HTTP/HTTPS
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch metadata: ${response.statusText}`);
-      }
-      return await response.json();
-    } catch (err) {
-      console.error('Error fetching metadata:', err);
-      return null;
-    }
-  }
+  }, [fetchMetadataFromURI]);
 
   function resolveIPFSUrl(url: string): string {
     if (url.startsWith('ipfs://')) {
@@ -215,9 +221,10 @@ export default function ManifoldCollection() {
         {tokens.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {tokens.map((token) => (
-              <div
+              <Link
                 key={token.tokenId}
-                className="group relative aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer"
+                href={`/token/${token.tokenId}`}
+                className="group relative aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer block"
               >
                 <Image
                   src={token.image}
@@ -238,9 +245,12 @@ export default function ManifoldCollection() {
                         {token.description}
                       </p>
                     )}
+                    <p className="text-gray-300 text-xs mt-2">
+                      Click to view details →
+                    </p>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (
