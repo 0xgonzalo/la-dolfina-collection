@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createPublicClient, http, parseAbi } from 'viem';
-import { sepolia } from 'viem/chains';
+import { base } from 'viem/chains';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -13,7 +13,7 @@ interface TokenMetadata {
   image: string;
 }
 
-const CONTRACT_ADDRESS = '0xdf9c6c6e0f193467d9edc2c130820e5b366219b5' as const;
+const CONTRACT_ADDRESS = '0x7a16ab61fd1e708436fd4962057e21d57879d65d' as const;
 
 // ERC-721 ABI for the methods we need
 const ERC721_ABI = parseAbi([
@@ -58,7 +58,8 @@ export default function ManifoldCollection() {
 
   useEffect(() => {
     async function fetchTokenMetadata(
-      publicClient: ReturnType<typeof createPublicClient>,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      publicClient: any,
       tokenId: string
     ): Promise<TokenMetadata | null> {
       try {
@@ -114,9 +115,11 @@ export default function ManifoldCollection() {
         setError(null);
 
         // Create a public client for reading from the blockchain
+        // Use custom RPC URL if provided, otherwise use public endpoint
+        const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL;
         const publicClient = createPublicClient({
-          chain: sepolia,
-          transport: http(),
+          chain: base,
+          transport: http(rpcUrl),
         });
 
         // Try to get total supply, if not available we'll try a range
@@ -132,17 +135,27 @@ export default function ManifoldCollection() {
           console.log('totalSupply not available, trying token range...');
         }
 
-        // Fetch metadata for each token
-        const tokenPromises: Promise<TokenMetadata | null>[] = [];
+        // Fetch metadata for each token with rate limiting
+        const validTokens: TokenMetadata[] = [];
 
-        for (let i = 1; i <= maxTokens; i++) {
-          tokenPromises.push(
-            fetchTokenMetadata(publicClient, i.toString())
-          );
+        // Fetch tokens in batches to avoid rate limits
+        const batchSize = 3;
+        for (let i = 1; i <= maxTokens; i += batchSize) {
+          const batch: Promise<TokenMetadata | null>[] = [];
+
+          for (let j = i; j < Math.min(i + batchSize, maxTokens + 1); j++) {
+            batch.push(fetchTokenMetadata(publicClient, j.toString()));
+          }
+
+          const batchResults = await Promise.all(batch);
+          const batchValid = batchResults.filter((token): token is TokenMetadata => token !== null);
+          validTokens.push(...batchValid);
+
+          // Wait between batches to avoid rate limiting (500ms delay)
+          if (i + batchSize <= maxTokens) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
-
-        const results = await Promise.all(tokenPromises);
-        const validTokens = results.filter((token): token is TokenMetadata => token !== null);
 
         setTokens(validTokens);
       } catch (err) {
@@ -213,7 +226,7 @@ export default function ManifoldCollection() {
             Explore our exclusive NFT collection from Manifold auction
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            Contract: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)} (Sepolia)
+            Contract: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)} (Base)
           </p>
         </div>
 

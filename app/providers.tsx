@@ -4,14 +4,17 @@ import { PrivyProvider } from '@privy-io/react-auth';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http } from 'viem';
-import { sepolia } from 'viem/chains';
+import { base } from 'viem/chains';
 import { createConfig } from 'wagmi';
 
-// Create wagmi config with Sepolia testnet
+// Get RPC URL from environment variable or use public endpoint
+const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL;
+
+// Create wagmi config with Base Mainnet
 const wagmiConfig = createConfig({
-  chains: [sepolia],
+  chains: [base],
   transports: {
-    [sepolia.id]: http(),
+    [base.id]: http(rpcUrl),
   },
 });
 

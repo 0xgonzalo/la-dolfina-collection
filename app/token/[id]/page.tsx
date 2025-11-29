@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createPublicClient, http, parseAbi } from 'viem';
-import { sepolia } from 'viem/chains';
+import { base } from 'viem/chains';
 import Image from 'next/image';
 
 interface TokenMetadata {
@@ -22,7 +22,7 @@ interface AuctionData {
   isActive: boolean;
 }
 
-const CONTRACT_ADDRESS = '0xdf9c6c6e0f193467d9edc2c130820e5b366219b5' as const;
+const CONTRACT_ADDRESS = '0x7a16ab61fd1e708436fd4962057e21d57879d65d' as const;
 
 const ERC721_ABI = parseAbi([
   'function tokenURI(uint256 tokenId) view returns (string)',
@@ -72,9 +72,11 @@ export default function TokenPage() {
         setLoading(true);
         setError(null);
 
+        // Use custom RPC URL if provided, otherwise use public endpoint
+        const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL;
         const publicClient = createPublicClient({
-          chain: sepolia,
-          transport: http(),
+          chain: base,
+          transport: http(rpcUrl),
         });
 
         // Fetch token URI
@@ -214,7 +216,7 @@ export default function TokenPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Contract</span>
                   <a
-                    href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
+                    href={`https://basescan.org/address/${CONTRACT_ADDRESS}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-mono text-sm text-indigo-600 hover:text-indigo-800"
@@ -224,13 +226,13 @@ export default function TokenPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Network</span>
-                  <span className="font-semibold text-gray-900">Sepolia Testnet</span>
+                  <span className="font-semibold text-gray-900">Base Mainnet</span>
                 </div>
                 {owner && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Owner</span>
                     <a
-                      href={`https://sepolia.etherscan.io/address/${owner}`}
+                      href={`https://basescan.org/address/${owner}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-sm text-indigo-600 hover:text-indigo-800"
@@ -319,12 +321,12 @@ export default function TokenPage() {
             {/* Action Buttons */}
             <div className="flex gap-4">
               <a
-                href={`https://sepolia.etherscan.io/token/${CONTRACT_ADDRESS}?a=${tokenId}`}
+                href={`https://basescan.org/token/${CONTRACT_ADDRESS}?a=${tokenId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 px-6 py-3 bg-gray-900 text-white text-center rounded-lg hover:bg-gray-800 transition-colors font-semibold"
               >
-                View on Etherscan
+                View on Basescan
               </a>
             </div>
           </div>
