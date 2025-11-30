@@ -139,7 +139,7 @@ export default function ManifoldCollection() {
         const validTokens: TokenMetadata[] = [];
 
         // Fetch tokens in batches to avoid rate limits
-        const batchSize = 3;
+        const batchSize = 2; // Reduced from 3 to 2
         for (let i = 1; i <= maxTokens; i += batchSize) {
           const batch: Promise<TokenMetadata | null>[] = [];
 
@@ -151,9 +151,9 @@ export default function ManifoldCollection() {
           const batchValid = batchResults.filter((token): token is TokenMetadata => token !== null);
           validTokens.push(...batchValid);
 
-          // Wait between batches to avoid rate limiting (500ms delay)
+          // Wait between batches to avoid rate limiting (increased to 1 second delay)
           if (i + batchSize <= maxTokens) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
 
@@ -232,12 +232,12 @@ export default function ManifoldCollection() {
 
         {/* Token Grid */}
         {tokens.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {tokens.map((token) => (
               <Link
                 key={token.tokenId}
                 href={`/token/${token.tokenId}`}
-                className="group relative aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer block"
+                className="group relative aspect-video rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer block"
               >
                 <Image
                   src={token.image}

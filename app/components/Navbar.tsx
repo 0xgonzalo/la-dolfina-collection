@@ -2,6 +2,7 @@
 
 import { usePrivy } from '@privy-io/react-auth';
 import Image from 'next/image';
+import Link from 'next/link';
 
 /**
  * Navbar component with Privy wallet connection
@@ -27,14 +28,16 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           {/* Logo/Brand */}
           <div className="flex items-center gap-8">
-            <Image
-              src="/logo.avif"
-              alt="La Dolfina"
-              width={120}
-              height={32}
-              className="h-8 w-auto"
-              priority
-            />
+            <Link href="/">
+              <Image
+                src="/logo.avif"
+                alt="La Dolfina"
+                width={120}
+                height={32}
+                className="h-8 w-auto"
+                priority
+              />
+            </Link>
 
             {/* Navigation Links */}
             <nav className="hidden md:flex items-center gap-6">
